@@ -287,6 +287,73 @@ class YfinanceFetcher(BaseFetcher):
 
         return None
 
+    def get_global_indices(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        获取全球主要指数行情 (Yahoo Finance)
+        """
+        import yfinance as yf
+
+        # 全球指数映射：代码 -> (yfinance代码, 名称)
+        indices_map = {
+            'SPX': ('^GSPC', '标普500'),
+            'IXIC': ('^IXIC', '纳斯达克'),
+            'DJI': ('^DJI', '道琼斯'),
+            'HSI': ('^HSI', '恒生指数'),
+        }
+
+        results = []
+        try:
+            for code, (yf_code, name) in indices_map.items():
+                try:
+                    ticker = yf.Ticker(yf_code)
+                    # 获取最近2天数据以计算涨跌
+                    hist = ticker.history(period='2d')
+                    if hist.empty:
+                        continue
+
+                    today = hist.iloc[-1]
+                    prev = hist.iloc[-2] if len(hist) > 1 else today
+
+                    price = float(today['Close'])
+                    prev_close = float(prev['Close'])
+                    change = price - prev_close
+                    change_pct = (change / prev_close) * 100 if prev_close else 0
+
+                    # 振幅
+                    high = float(today['High'])
+                    low = float(today['Low'])
+                    amplitude = ((high - low) / prev_close * 100) if prev_close else 0
+
+                    results.append({
+                        'code': code,
+                        'name': name,
+                        'current': round(price, 2),
+                        'change': round(change, 2),
+                        'change_pct': round(change_pct, 2),
+                        'open': round(float(today['Open']), 2),
+                        'high': round(high, 2),
+                        'low': round(low, 2),
+                        'prev_close': round(prev_close, 2),
+                        'volume': float(today['Volume']),
+                        'amount': 0.0,
+                        'amplitude': round(amplitude, 2)
+                    })
+                    logger.debug(f"[Yfinance] 获取指数 {name} 成功")
+
+                except Exception as e:
+                    logger.warning(f"[Yfinance] 获取指数 {name} 失败: {e}")
+                    continue
+
+            if results:
+                logger.info(f"[Yfinance] 成功获取 {len(results)} 个全球指数行情")
+                return results
+
+        except Exception as e:
+            logger.error(f"[Yfinance] 获取全球指数行情失败: {e}")
+            return None
+        
+        return None
+
     def _is_us_stock(self, stock_code: str) -> bool:
         """
         判断代码是否为美股

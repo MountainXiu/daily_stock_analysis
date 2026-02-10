@@ -111,6 +111,15 @@ class BaseFetcher(ABC):
         """
         return None
 
+    def get_global_indices(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        获取全球主要指数实时行情 (如标普500, 纳斯达克等)
+
+        Returns:
+            List[Dict]: 指数列表
+        """
+        return None
+
     def get_market_stats(self) -> Optional[Dict[str, Any]]:
         """
         获取市场涨跌统计
@@ -840,6 +849,19 @@ class DataFetcherManager:
                     return data
             except Exception as e:
                 logger.warning(f"[{fetcher.name}] 获取指数行情失败: {e}")
+                continue
+        return []
+
+    def get_global_indices(self) -> List[Dict[str, Any]]:
+        """获取全球主要指数实时行情（自动切换数据源）"""
+        for fetcher in self._fetchers:
+            try:
+                data = fetcher.get_global_indices()
+                if data:
+                    logger.info(f"[{fetcher.name}] 获取全球指数行情成功")
+                    return data
+            except Exception as e:
+                logger.warning(f"[{fetcher.name}] 获取全球指数行情失败: {e}")
                 continue
         return []
 

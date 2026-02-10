@@ -62,6 +62,7 @@ class MarketOverview:
     """市场概览数据"""
     date: str                           # 日期
     indices: List[MarketIndex] = field(default_factory=list)  # 主要指数
+    global_indices: List[MarketIndex] = field(default_factory=list)  # 全球主要指数
     up_count: int = 0                   # 上涨家数
     down_count: int = 0                 # 下跌家数
     flat_count: int = 0                 # 平盘家数
@@ -113,10 +114,13 @@ class MarketAnalyzer:
         # 1. 获取主要指数行情
         overview.indices = self._get_main_indices()
         
-        # 2. 获取涨跌统计
+        # 2. 获取全球指数行情
+        overview.global_indices = self._get_global_indices()
+        
+        # 3. 获取涨跌统计
         self._get_market_statistics(overview)
         
-        # 3. 获取板块涨跌榜
+        # 4. 获取板块涨跌榜
         self._get_sector_rankings(overview)
         
         # 4. 获取北向资金（可选）
@@ -161,6 +165,44 @@ class MarketAnalyzer:
 
         except Exception as e:
             logger.error(f"[大盘] 获取指数行情失败: {e}")
+
+        return indices
+
+    def _get_global_indices(self) -> List[MarketIndex]:
+        """获取全球主要指数实时行情"""
+        indices = []
+
+        try:
+            logger.info("[大盘] 获取全球指数实时行情...")
+
+            # 使用 DataFetcherManager 获取全球指数行情
+            data_list = self.data_manager.get_global_indices()
+
+            if data_list:
+                for item in data_list:
+                    index = MarketIndex(
+                        code=item['code'],
+                        name=item['name'],
+                        current=item.get('current', 0.0),
+                        change=item.get('change', 0.0),
+                        change_pct=item.get('change_pct', 0.0),
+                        open=item.get('open', 0.0),
+                        high=item.get('high', 0.0),
+                        low=item.get('low', 0.0),
+                        prev_close=item.get('prev_close', 0.0),
+                        volume=item.get('volume', 0.0),
+                        amount=item.get('amount', 0.0),
+                        amplitude=item.get('amplitude', 0.0)
+                    )
+                    indices.append(index)
+
+            if not indices:
+                logger.info("[大盘] 未获取到全球指数行情")
+            else:
+                logger.info(f"[大盘] 获取到 {len(indices)} 个全球指数行情")
+
+        except Exception as e:
+            logger.error(f"[大盘] 获取全球指数行情失败: {e}")
 
         return indices
 
@@ -375,16 +417,31 @@ class MarketAnalyzer:
 
     def _build_indices_block(self, overview: MarketOverview) -> str:
         """Build indices table block (without amplitude)."""
-        if not overview.indices:
+        if not overview.indices and not overview.global_indices:
             return ""
-        lines = [
-            "| 指数 | 最新 | 涨跌幅 | 成交额(亿) |",
-            "|------|------|--------|-----------|"]
-        for idx in overview.indices:
-            arrow = "🔴" if idx.change_pct < 0 else "🟢" if idx.change_pct > 0 else "⚪"
-            amount_raw = idx.amount or 0.0
-            amount_yi = amount_raw / 1e8 if amount_raw > 1e6 else amount_raw
-            lines.append(f"| {idx.name} | {idx.current:.2f} | {arrow} {idx.change_pct:+.2f}% | {amount_yi:.0f} |")
+            
+        lines = []
+        
+        if overview.indices:
+            lines.append("**A股主要指数**")
+            lines.append("| 指数 | 最新 | 涨跌幅 | 成交额(亿) |")
+            lines.append("|------|------|--------|-----------|")
+            for idx in overview.indices:
+                arrow = "🔴" if idx.change_pct < 0 else "🟢" if idx.change_pct > 0 else "⚪"
+                amount_raw = idx.amount or 0.0
+                amount_yi = amount_raw / 1e8 if amount_raw > 1e6 else amount_raw
+                lines.append(f"| {idx.name} | {idx.current:.2f} | {arrow} {idx.change_pct:+.2f}% | {amount_yi:.0f} |")
+        
+        if overview.global_indices:
+            if lines:
+                lines.append("")
+            lines.append("**全球主要指数**")
+            lines.append("| 指数 | 最新 | 涨跌幅 |")
+            lines.append("|------|------|--------|")
+            for idx in overview.global_indices:
+                arrow = "🔴" if idx.change_pct < 0 else "🟢" if idx.change_pct > 0 else "⚪"
+                lines.append(f"| {idx.name} | {idx.current:.2f} | {arrow} {idx.change_pct:+.2f}% |")
+                
         return "\n".join(lines)
 
     def _build_sector_block(self, overview: MarketOverview) -> str:
@@ -411,6 +468,12 @@ class MarketAnalyzer:
         for idx in overview.indices:
             direction = "↑" if idx.change_pct > 0 else "↓" if idx.change_pct < 0 else "-"
             indices_text += f"- {idx.name}: {idx.current:.2f} ({direction}{abs(idx.change_pct):.2f}%)\n"
+        
+        # 全球指数行情信息
+        global_indices_text = ""
+        for idx in overview.global_indices:
+            direction = "↑" if idx.change_pct > 0 else "↓" if idx.change_pct < 0 else "-"
+            global_indices_text += f"- {idx.name}: {idx.current:.2f} ({direction}{abs(idx.change_pct):.2f}%)\n"
         
         # 板块信息
         top_sectors_text = ", ".join([f"{s['name']}({s['change_pct']:+.2f}%)" for s in overview.top_sectors[:3]])
@@ -443,8 +506,11 @@ class MarketAnalyzer:
 ## 日期
 {overview.date}
 
-## 主要指数
+## A股主要指数
 {indices_text if indices_text else "暂无指数数据（接口异常）"}
+
+## 全球主要指数
+{global_indices_text if global_indices_text else "暂无全球指数数据"}
 
 ## 市场概况
 - 上涨: {overview.up_count} 家 | 下跌: {overview.down_count} 家 | 平盘: {overview.flat_count} 家
@@ -470,7 +536,7 @@ class MarketAnalyzer:
 （2-3句话概括今日市场整体表现，包括指数涨跌、成交量变化）
 
 ### 二、指数点评
-（分析上证、深证、创业板等各指数走势特点）
+（分析上证、深证、创业板等各指数走势特点，并简要点评标普500等全球指数表现）
 
 ### 三、资金动向
 （解读成交额流向的含义）
@@ -512,6 +578,13 @@ class MarketAnalyzer:
         for idx in overview.indices[:4]:
             direction = "↑" if idx.change_pct > 0 else "↓" if idx.change_pct < 0 else "-"
             indices_text += f"- **{idx.name}**: {idx.current:.2f} ({direction}{abs(idx.change_pct):.2f}%)\n"
+        
+        # 全球指数
+        if overview.global_indices:
+            indices_text += "\n**全球主要指数**\n"
+            for idx in overview.global_indices:
+                direction = "↑" if idx.change_pct > 0 else "↓" if idx.change_pct < 0 else "-"
+                indices_text += f"- **{idx.name}**: {idx.current:.2f} ({direction}{abs(idx.change_pct):.2f}%)\n"
         
         # 板块信息
         top_text = "、".join([s['name'] for s in overview.top_sectors[:3]])
