@@ -319,11 +319,13 @@ class DataFetcherManager:
         from .pytdx_fetcher import PytdxFetcher
         from .baostock_fetcher import BaostockFetcher
         from .yfinance_fetcher import YfinanceFetcher
+        from .longport_fetcher import LongPortFetcher
         from src.config import get_config
 
         config = get_config()
 
         # 创建所有数据源实例（优先级在各 Fetcher 的 __init__ 中确定）
+        longport = LongPortFetcher() # 优先级 -1 (最高)
         efinance = EfinanceFetcher()
         akshare = AkshareFetcher()
         tushare = TushareFetcher()  # 会根据 Token 配置自动调整优先级
@@ -333,6 +335,7 @@ class DataFetcherManager:
 
         # 初始化数据源列表
         self._fetchers = [
+            longport,
             efinance,
             akshare,
             tushare,

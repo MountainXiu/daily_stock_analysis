@@ -50,6 +50,12 @@ class Config:
     # === 数据源 API Token ===
     tushare_token: Optional[str] = None
     
+    # 长桥 LongPort 配置
+    longport_app_key: Optional[str] = None
+    longport_app_secret: Optional[str] = None
+    longport_access_token: Optional[str] = None
+    longport_quote_level: str = "1"  # 1: 基础行情, 2: 深度行情 (默认1)
+    
     # === AI 分析配置 ===
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-3-flash-preview"  # 主模型
@@ -338,6 +344,10 @@ class Config:
             feishu_app_secret=os.getenv('FEISHU_APP_SECRET'),
             feishu_folder_token=os.getenv('FEISHU_FOLDER_TOKEN'),
             tushare_token=os.getenv('TUSHARE_TOKEN'),
+            longport_app_key=os.getenv('LONGPORT_APP_KEY'),
+            longport_app_secret=os.getenv('LONGPORT_APP_SECRET'),
+            longport_access_token=os.getenv('LONGPORT_ACCESS_TOKEN'),
+            longport_quote_level=os.getenv('LONGPORT_QUOTE_LEVEL', '1'),
             gemini_api_key=os.getenv('GEMINI_API_KEY'),
             gemini_model=os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview'),
             gemini_model_fallback=os.getenv('GEMINI_MODEL_FALLBACK', 'gemini-2.5-flash'),

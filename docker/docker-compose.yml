@@ -7,7 +7,7 @@
 #   FastAPI模式: docker-compose -f ./docker/docker-compose.yml up -d server
 #   同时启动: docker-compose -f ./docker/docker-compose.yml up -d analyzer server
 
-version: '3.8'
+version: '3.7'
 
 x-common: &common
   build:
@@ -32,11 +32,13 @@ x-common: &common
 
     # API 服务绑定地址（容器内需要绑定到 0.0.0.0）
     - API_HOST=0.0.0.0
+    - WEBUI_HOST=0.0.0.0
     # API_PORT 从 .env 文件读取，无需在此硬编码
 
     # 代理设置（如果需要）
-    # - http_proxy=http://host.docker.internal:10809
-    # - https_proxy=http://host.docker.internal:10809
+    - http_proxy=http://host.docker.internal:9981
+    - https_proxy=http://host.docker.internal:9981
+    - no_proxy=localhost,127.0.0.1,0.0.0.0,::1,stock-server,stock-analyzer
   logging:
     driver: "json-file"
     options:
